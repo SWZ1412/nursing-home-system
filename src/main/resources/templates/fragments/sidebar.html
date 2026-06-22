@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+<nav class="sidebar" th:fragment="sidebar">
+    <!-- 系统标识 -->
+    <div class="sidebar-brand">
+        <div class="brand-icon">🏥</div>
+        <div class="brand-text">
+            <div class="brand-name">养老管理系统</div>
+            <div class="brand-sub">Nursing Home</div>
+        </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- 导航菜单 -->
+    <div class="sidebar-section-label">主菜单</div>
+    <ul class="sidebar-menu">
+        <li><a href="/index">
+            <span class="menu-icon home">📊</span>
+            <span class="menu-text">首页概览</span>
+        </a></li>
+        <li><a href="/elder">
+            <span class="menu-icon elder">👴</span>
+            <span class="menu-text">老人管理</span>
+        </a></li>
+        <li><a href="/room">
+            <span class="menu-icon room">🏠</span>
+            <span class="menu-text">房间管理</span>
+        </a></li>
+    </ul>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">医疗服务</div>
+    <ul class="sidebar-menu">
+        <li><a href="/medicine">
+            <span class="menu-icon medicine">💊</span>
+            <span class="menu-text">药物管理</span>
+        </a></li>
+        <li><a href="/medication-plan">
+            <span class="menu-icon plan">📋</span>
+            <span class="menu-text">用药计划</span>
+        </a></li>
+        <li><a href="/health">
+            <span class="menu-icon health">❤️</span>
+            <span class="menu-text">健康记录</span>
+        </a></li>
+    </ul>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">运营管理</div>
+    <ul class="sidebar-menu">
+        <li><a href="/bill">
+            <span class="menu-icon bill">💰</span>
+            <span class="menu-text">收费管理</span>
+        </a></li>
+        <li><a href="/visitor">
+            <span class="menu-icon visitor">🚶</span>
+            <span class="menu-text">访客管理</span>
+        </a></li>
+        <li><a href="/accident">
+            <span class="menu-icon accident">🔒</span>
+            <span class="menu-text">安全管理</span>
+        </a></li>
+        <li><a href="/user">
+            <span class="menu-icon user">👤</span>
+            <span class="menu-text">用户管理</span>
+        </a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+        <span>v1.0</span>
+    </div>
+</nav>
+<script>
+    // 自动高亮当前页面对应的菜单项
+    (function(){
+        const path = window.location.pathname;
+        const links = document.querySelectorAll('.sidebar-menu li a');
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && path.startsWith(href) && href !== '/index') {
+                link.classList.add('active');
+            } else if (href === '/index' && path === '/index') {
+                link.classList.add('active');
+            }
+        });
+    })();
+</script>
+</body>
+</html>

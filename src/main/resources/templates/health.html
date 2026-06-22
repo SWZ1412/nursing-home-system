@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>健康记录 - 养老院管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/common.css}">
+    <style>
+        .record-card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .record-date { color: #667eea; font-weight: bold; margin-bottom: 8px; }
+        .record-row { display: flex; gap: 20px; flex-wrap: wrap; }
+        .record-item { margin-bottom: 5px; }
+        .record-item span { font-weight: 500; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 10px; width: 550px; max-width: 90%; padding: 30px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>健康记录</h2>
+            <button class="btn btn-primary" onclick="showAddModal()">+ 新增记录</button>
+        </div>
+        <div class="search-bar">
+            <select id="elderSelect" onchange="loadRecordsByElder()">
+                <option value="">所有老人</option>
+            </select>
+        </div>
+        <div id="recordsList"></div>
+    </div>
+</div>
+
+<!-- 新增健康记录弹窗 -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>新增健康记录</h3><button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button></div>
+        <form id="healthForm">
+            <div class="form-group"><label>老人</label><select id="healthElderId" required><option value="">请选择老人</option></select></div>
+            <div class="form-group"><label>记录日期</label><input type="date" id="recordDate" required></div>
+            <div class="form-group"><label>体温(℃)</label><input type="number" step="0.1" id="temperature"></div>
+            <div class="form-group">
+                <label>血压</label>
+                <div style="display:flex;gap:10px;">
+                    <input type="number" id="bloodPressureSystolic" placeholder="收缩压" style="flex:1;">
+                    <span style="line-height:40px;">/</span>
+                    <input type="number" id="bloodPressureDiastolic" placeholder="舒张压" style="flex:1;">
+                </div>
+            </div>
+            <div class="form-group"><label>血糖(mmol/L)</label><input type="number" step="0.1" id="bloodSugar"></div>
+            <div class="form-group"><label>心率(次/分)</label><input type="number" id="heartRate"></div>
+            <div class="form-group"><label>用药情况</label><textarea id="medication" rows="2"></textarea></div>
+            <div class="form-group"><label>护理备注</label><textarea id="nurseNote" rows="3"></textarea></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveHealth()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function loadElders() {
+        fetch('/elder/list').then(res=>res.json()).then(data=>{
+            if(data.code===200){
+                const select = document.getElementById('elderSelect');
+                const healthSelect = document.getElementById('healthElderId');
+                data.data.list.forEach(elder=>{
+                    select.innerHTML += `<option value="${elder.id}">${elder.name}</option>`;
+                    healthSelect.innerHTML += `<option value="${elder.id}">${elder.name}</option>`;
+                });
+            }
+        });
+    }
+    function loadRecordsByElder() {
+        const elderId = document.getElementById('elderSelect').value;
+        const url = elderId ? `/health/elder/${elderId}` : '/health/list';
+        fetch(url).then(res=>res.json()).then(data=>{
+            if(data.code===200) {
+                const records = Array.isArray(data.data) ? data.data : data.data.list;
+                renderRecords(records);
+            }
+        });
+    }
+    function renderRecords(records) {
+        const container = document.getElementById('recordsList');
+        container.innerHTML = '';
+        if(!records || records.length === 0) {
+            container.innerHTML = '<p style="text-align:center;padding:40px;color:#999;">暂无健康记录</p>';
+            return;
+        }
+        records.forEach(rec=>{
+            const card = `<div class="record-card">
+                    <div class="record-date">📅 ${rec.recordDate||'-'}</div>
+                    <div class="record-item"><span>老人：</span>${rec.elderName||'-'}</div>
+                    <div class="record-row">
+                        <div class="record-item"><span>体温：</span>${rec.temperature||'-'}℃</div>
+                        <div class="record-item"><span>血压：</span>${rec.bloodPressureSystolic||'-'}/${rec.bloodPressureDiastolic||'-'}</div>
+                        <div class="record-item"><span>血糖：</span>${rec.bloodSugar||'-'} mmol/L</div>
+                        <div class="record-item"><span>心率：</span>${rec.heartRate||'-'} 次/分</div>
+                    </div>
+                    <div class="record-item"><span>用药：</span>${rec.medication||'-'}</div>
+                    <div class="record-item"><span>备注：</span>${rec.nurseNote||'-'}</div>
+                    <div style="margin-top:8px;">
+                        <button class="btn btn-danger" style="font-size:12px;padding:2px 8px;" onclick="deleteHealth(${rec.id})">删除</button>
+                    </div>
+                </div>`;
+            container.innerHTML += card;
+        });
+    }
+    function showAddModal() {
+        document.getElementById('healthForm').reset();
+        document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('modal').style.display = 'flex';
+    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function saveHealth() {
+        const record = {
+            elderId: parseInt(document.getElementById('healthElderId').value),
+            recordDate: document.getElementById('recordDate').value,
+            temperature: parseFloat(document.getElementById('temperature').value) || null,
+            bloodPressureSystolic: parseInt(document.getElementById('bloodPressureSystolic').value) || null,
+            bloodPressureDiastolic: parseInt(document.getElementById('bloodPressureDiastolic').value) || null,
+            bloodSugar: parseFloat(document.getElementById('bloodSugar').value) || null,
+            heartRate: parseInt(document.getElementById('heartRate').value) || null,
+            medication: document.getElementById('medication').value,
+            nurseNote: document.getElementById('nurseNote').value
+        };
+        fetch('/health/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(record) })
+            .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closeModal(); loadRecordsByElder(); } })
+            .catch(err=>{ alert('请求失败：'+err.message); });
+    }
+    function deleteHealth(id) {
+        if(!confirm('确定删除这条健康记录吗？')) return;
+        fetch(`/health/delete/${id}`, { method:'DELETE' }).then(r=>r.json()).then(d=>{
+            alert(d.message); if(d.code===200) loadRecordsByElder();
+        });
+    }
+    loadElders();
+    loadRecordsByElder();
+</script>
+</body>
+</html>

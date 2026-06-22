@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>添加房间 - 养老院管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/common.css}">
+    <style>
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>添加房间</h2>
+            <a href="/room" class="btn">返回列表</a>
+        </div>
+        <form id="roomForm" class="form">
+            <div class="form-group"><label>房间号</label><input type="text" id="roomNo" required></div>
+            <div class="form-group"><label>楼栋</label><input type="text" id="building"></div>
+            <div class="form-group"><label>楼层</label><input type="number" id="floor"></div>
+            <div class="form-group"><label>房型</label>
+                <select id="roomType">
+                    <option value="单人间">单人间</option>
+                    <option value="双人间">双人间</option>
+                    <option value="三人间">三人间</option>
+                </select>
+            </div>
+            <div class="form-group"><label>容纳人数</label><input type="number" id="capacity" required></div>
+            <div class="form-group"><label>月租(元)</label><input type="number" step="0.01" id="price" required></div>
+            <div class="form-group"><label>描述</label><textarea id="description" rows="2"></textarea></div>
+            <div class="modal-footer">
+                <a href="/room" class="btn">取消</a>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.getElementById('roomForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const room = {
+            roomNo: document.getElementById('roomNo').value,
+            building: document.getElementById('building').value,
+            floor: parseInt(document.getElementById('floor').value) || null,
+            roomType: document.getElementById('roomType').value,
+            capacity: parseInt(document.getElementById('capacity').value),
+            price: parseFloat(document.getElementById('price').value),
+            description: document.getElementById('description').value
+        };
+        fetch('/room/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(room)
+        }).then(r => r.json()).then(d => {
+            alert(d.message);
+            if (d.code === 200) window.location.href = '/room';
+        });
+    });
+</script>
+</body>
+</html>

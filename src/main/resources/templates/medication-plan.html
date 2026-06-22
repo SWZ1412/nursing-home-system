@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>用药计划 - 养老院管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/common.css}">
+    <style>
+        .status-active { color: #4caf50; font-weight: bold; }
+        .status-stopped { color: #f44336; font-weight: bold; }
+        .status-completed { color: #9e9e9e; font-weight: bold; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 10px; width: 550px; max-width: 90%; padding: 30px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>用药计划管理</h2>
+            <button class="btn btn-primary" onclick="showAddModal()">+ 添加用药计划</button>
+        </div>
+        <div class="search-bar">
+            <select id="elderFilter" onchange="filterByElder()">
+                <option value="">全部老人</option>
+                <option th:each="elder : ${elders}" th:value="${elder.id}" th:text="${elder.name}"></option>
+            </select>
+        </div>
+        <table id="planTable">
+            <thead>
+                <tr>
+                    <th>老人</th><th>药品</th><th>规格</th><th>剂量</th><th>频次</th>
+                    <th>开始日期</th><th>结束日期</th><th>状态</th><th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="planTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 添加/编辑弹窗 -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">添加用药计划</h3>
+            <button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+        </div>
+        <form id="planForm">
+            <input type="hidden" id="planId">
+            <div class="form-group"><label>老人</label><select id="planElderId" required><option value="">请选择老人</option></select></div>
+            <div class="form-group"><label>药品</label><select id="planMedicineId" required><option value="">请选择药品</option></select></div>
+            <div class="form-group"><label>剂量</label><input type="text" id="dosage" placeholder="如 1片、10ml"></div>
+            <div class="form-group"><label>频次</label>
+                <select id="frequency">
+                    <option value="每日一次">每日一次</option>
+                    <option value="每日两次">每日两次</option>
+                    <option value="每日三次">每日三次</option>
+                    <option value="每晚一次">每晚一次</option>
+                    <option value="每周一次">每周一次</option>
+                    <option value="按需服用">按需服用</option>
+                </select>
+            </div>
+            <div class="form-group"><label>开始日期</label><input type="date" id="startDate"></div>
+            <div class="form-group"><label>结束日期</label><input type="date" id="endDate"></div>
+            <div class="form-group"><label>状态</label>
+                <select id="planStatus">
+                    <option value="ACTIVE">执行中</option>
+                    <option value="STOPPED">已停用</option>
+                    <option value="COMPLETED">已完成</option>
+                </select>
+            </div>
+            <div class="form-group"><label>备注</label><textarea id="planRemark" rows="2"></textarea></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="savePlan()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentEditId = null;
+
+    function loadPlans() {
+        fetch('/medication-plan/list').then(res => res.json()).then(data => {
+            if (data.code === 200) renderTable(data.data.list);
+        });
+    }
+    function renderTable(list) {
+        let html = '';
+        list.forEach(p => {
+            const statusClass = p.status === 'ACTIVE' ? 'status-active' :
+                              p.status === 'STOPPED' ? 'status-stopped' : 'status-completed';
+            html += `<tr>
+                <td>${p.elderName || '-'}</td><td>${p.medicineName || '-'}</td>
+                <td>${p.medicineSpecification || '-'}</td><td>${p.dosage || '-'}</td>
+                <td>${p.frequency || '-'}</td><td>${p.startDate || '-'}</td>
+                <td>${p.endDate || '-'}</td><td class="${statusClass}">${p.status}</td>
+                <td>
+                    <button class="btn btn-warning" onclick="editPlan(${p.id})">编辑</button>
+                    <button class="btn" onclick="stopPlan(${p.id})">停用</button>
+                    <button class="btn btn-danger" onclick="deletePlan(${p.id})">删除</button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('planTableBody').innerHTML = html;
+    }
+    function filterByElder() {
+        const elderId = document.getElementById('elderFilter').value;
+        if (!elderId) { loadPlans(); return; }
+        fetch('/medication-plan/elder/' + elderId).then(res => res.json()).then(data => {
+            if (data.code === 200) renderTable(data.data);
+        });
+    }
+    function loadSelects() {
+        fetch('/elder/list').then(res=>res.json()).then(data=>{
+            if(data.code===200){
+                const sel = document.getElementById('planElderId');
+                data.data.list.forEach(e => { sel.innerHTML += `<option value="${e.id}">${e.name}</option>`; });
+            }
+        });
+        fetch('/medicine/list').then(res=>res.json()).then(data=>{
+            if(data.code===200){
+                const sel = document.getElementById('planMedicineId');
+                data.data.list.forEach(m => { sel.innerHTML += `<option value="${m.id}">${m.name} (${m.specification||''})</option>`; });
+            }
+        });
+    }
+    function showAddModal() {
+        currentEditId = null;
+        document.getElementById('modalTitle').innerText = '添加用药计划';
+        document.getElementById('planForm').reset();
+        document.getElementById('planId').value = '';
+        document.getElementById('planStatus').value = 'ACTIVE';
+        document.getElementById('modal').style.display = 'flex';
+    }
+    function editPlan(id) {
+        currentEditId = id;
+        fetch('/medication-plan/list').then(res=>res.json()).then(data=>{
+            const p = data.data.list.find(p => p.id === id);
+            if(p){
+                document.getElementById('modalTitle').innerText = '编辑用药计划';
+                document.getElementById('planId').value = p.id;
+                document.getElementById('planElderId').value = p.elderId || '';
+                document.getElementById('planMedicineId').value = p.medicineId || '';
+                document.getElementById('dosage').value = p.dosage || '';
+                document.getElementById('frequency').value = p.frequency || '每日一次';
+                document.getElementById('startDate').value = p.startDate ? p.startDate.split('T')[0] : '';
+                document.getElementById('endDate').value = p.endDate ? p.endDate.split('T')[0] : '';
+                document.getElementById('planStatus').value = p.status || 'ACTIVE';
+                document.getElementById('planRemark').value = p.remark || '';
+                document.getElementById('modal').style.display = 'flex';
+            }
+        });
+    }
+    function savePlan() {
+        const plan = {
+            id: parseInt(document.getElementById('planId').value) || null,
+            elderId: parseInt(document.getElementById('planElderId').value),
+            medicineId: parseInt(document.getElementById('planMedicineId').value),
+            dosage: document.getElementById('dosage').value,
+            frequency: document.getElementById('frequency').value,
+            startDate: document.getElementById('startDate').value,
+            endDate: document.getElementById('endDate').value,
+            status: document.getElementById('planStatus').value,
+            remark: document.getElementById('planRemark').value
+        };
+        const url = plan.id ? '/medication-plan/update' : '/medication-plan/add';
+        const method = plan.id ? 'PUT' : 'POST';
+        fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(plan) })
+            .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closeModal(); loadPlans(); } })
+            .catch(err=>{ alert('请求失败：'+err.message); });
+    }
+    function stopPlan(id) {
+        if (!confirm('确定停用该用药计划吗？')) return;
+        fetch('/medication-plan/status/' + id + '?status=STOPPED', { method: 'PUT' })
+            .then(r => r.json()).then(d => { alert(d.message); loadPlans(); });
+    }
+    function deletePlan(id) {
+        if (!confirm('确定删除该用药计划吗？')) return;
+        fetch('/medication-plan/delete/' + id, { method: 'DELETE' })
+            .then(r => r.json()).then(d => { alert(d.message); if(d.code===200) loadPlans(); });
+    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    loadSelects();
+    loadPlans();
+</script>
+</body>
+</html>

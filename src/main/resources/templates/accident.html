@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>安全管理 - 养老院管理系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .severity-minor { color: #ff9800; }
+        .severity-major { color: #f44336; font-weight: bold; }
+        .severity-critical { color: #d32f2f; font-weight: bold; text-decoration: underline; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 10px; width: 550px; max-width: 90%; padding: 30px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>安全管理（事故记录）</h2>
+            <button class="btn btn-primary" onclick="showAddModal()">+ 报告事故</button>
+        </div>
+        <table id="accidentTable">
+            <thead><tr><th>编号</th><th>老人</th><th>事故类型</th><th>时间</th><th>地点</th><th>严重程度</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="accidentTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 报告事故弹窗 -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>报告事故</h3><button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button></div>
+        <form id="accidentForm">
+            <div class="form-group"><label>涉及老人</label><select id="elderId" required><option value="">请选择</option></select></div>
+            <div class="form-group"><label>事故类型</label><select id="accidentType"><option value="跌倒">跌倒</option><option value="走失">走失</option><option value="突发疾病">突发疾病</option><option value="意外伤害">意外伤害</option><option value="其他">其他</option></select></div>
+            <div class="form-group"><label>发生时间</label><input type="datetime-local" id="accidentTime" required></div>
+            <div class="form-group"><label>地点</label><input type="text" id="location"></div>
+            <div class="form-group"><label>严重程度</label><select id="severity"><option value="轻微">轻微</option><option value="中等">中等</option><option value="严重">严重</option></select></div>
+            <div class="form-group"><label>事故描述</label><textarea id="description" rows="3" required></textarea></div>
+            <div class="form-group"><label>处理结果</label><textarea id="handlingResult" rows="2"></textarea></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveAccident()">提交报告</button>
+        </div>
+    </div>
+</div>
+
+<!-- 处理事故弹窗 -->
+<div id="handleModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>处理事故</h3><button onclick="closeHandleModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button></div>
+        <form id="handleForm">
+            <input type="hidden" id="handleAccidentId">
+            <div class="form-group"><label>处理结果</label><textarea id="handleResult" rows="3" required></textarea></div>
+            <div class="form-group"><label>状态</label><select id="handleStatus"><option value="REPORTED">已报告</option><option value="HANDLING">处理中</option><option value="RESOLVED">已解决</option></select></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeHandleModal()">取消</button>
+            <button class="btn btn-primary" onclick="updateAccident()">更新</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function loadAccidents() {
+        fetch('/accident/list').then(res=>res.json()).then(data=>{
+            if(data.code===200) renderAccidents(data.data.list);
+        });
+    }
+    function renderAccidents(records) {
+        let html = '';
+        records.forEach(r => {
+            let sev = r.severity === '严重' ? 'severity-critical' : r.severity === '中等' ? 'severity-major' : 'severity-minor';
+            let st = r.status === 'REPORTED' ? '已报告' : r.status === 'HANDLING' ? '处理中' : r.status === 'RESOLVED' ? '已解决' : r.status;
+            html += `<tr><td>${r.accidentNo||'-'}</td><td>${r.elderName||'-'}</td><td>${r.accidentType||'-'}</td>
+                <td>${r.accidentTime||'-'}</td><td>${r.location||'-'}</td><td class="${sev}">${r.severity||'-'}</td>
+                <td>${st}</td><td>
+                    <button class="btn btn-warning" onclick="showHandleModal(${r.id}, '${r.handlingResult||''}', '${r.status||'REPORTED'}')">处理</button></td></tr>`;
+        });
+        document.getElementById('accidentTableBody').innerHTML = html;
+    }
+    function loadEldersForAccident() {
+        fetch('/elder/list').then(res=>res.json()).then(data=>{
+            if(data.code===200){
+                const sel = document.getElementById('elderId');
+                data.data.list.forEach(e => { sel.innerHTML += `<option value="${e.id}">${e.name}</option>`; });
+            }
+        });
+    }
+    function showAddModal() {
+        document.getElementById('accidentForm').reset();
+        document.getElementById('modal').style.display='flex';
+    }
+    function closeModal() { document.getElementById('modal').style.display='none'; }
+    function saveAccident() {
+        const record = {
+            elderId: parseInt(document.getElementById('elderId').value),
+            accidentType: document.getElementById('accidentType').value,
+            accidentTime: document.getElementById('accidentTime').value,
+            location: document.getElementById('location').value,
+            severity: document.getElementById('severity').value,
+            description: document.getElementById('description').value,
+            handlingResult: document.getElementById('handlingResult').value
+        };
+        fetch('/accident/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(record) })
+            .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closeModal(); loadAccidents(); } })
+            .catch(err=>{ alert('请求失败：'+err.message); });
+    }
+    function showHandleModal(id, handlingResult, status) {
+        document.getElementById('handleAccidentId').value = id;
+        document.getElementById('handleResult').value = handlingResult || '';
+        document.getElementById('handleStatus').value = status || 'REPORTED';
+        document.getElementById('handleModal').style.display = 'flex';
+    }
+    function closeHandleModal() { document.getElementById('handleModal').style.display = 'none'; }
+    function updateAccident() {
+        const record = {
+            id: parseInt(document.getElementById('handleAccidentId').value),
+            handlingResult: document.getElementById('handleResult').value,
+            status: document.getElementById('handleStatus').value
+        };
+        fetch('/accident/update', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(record) })
+            .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closeHandleModal(); loadAccidents(); } })
+            .catch(err=>{ alert('请求失败：'+err.message); });
+    }
+    loadEldersForAccident();
+    loadAccidents();
+</script>
+</body>
+</html>

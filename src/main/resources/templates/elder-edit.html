@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>编辑老人 - 养老院管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/common.css}">
+    <style>
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>编辑老人</h2>
+            <a href="/elder" class="btn">返回列表</a>
+        </div>
+        <form id="elderForm" class="form" th:object="${elder}">
+            <input type="hidden" id="elderId" th:value="${elder.id}">
+            <div class="form-group"><label>姓名</label><input type="text" id="name" th:value="${elder.name}" required></div>
+            <div class="form-group"><label>性别</label><select id="gender"><option value="男" th:selected="${elder.gender == '男'}">男</option><option value="女" th:selected="${elder.gender == '女'}">女</option></select></div>
+            <div class="form-group"><label>出生日期</label><input type="date" id="birthday" th:value="${elder.birthday}"></div>
+            <div class="form-group"><label>身份证号</label><input type="text" id="idCard" th:value="${elder.idCard}"></div>
+            <div class="form-group"><label>联系电话</label><input type="text" id="phone" th:value="${elder.phone}"></div>
+            <div class="form-group"><label>紧急联系人</label><input type="text" id="emergencyContact" th:value="${elder.emergencyContact}"></div>
+            <div class="form-group"><label>紧急联系电话</label><input type="text" id="emergencyPhone" th:value="${elder.emergencyPhone}"></div>
+            <div class="form-group"><label>家庭地址</label><textarea id="address" rows="2" th:text="${elder.address}"></textarea></div>
+            <div class="form-group"><label>健康状况</label><textarea id="healthStatus" rows="2" th:text="${elder.healthStatus}"></textarea></div>
+            <div class="form-group"><label>房间</label>
+                <select id="roomId">
+                    <option value="">暂不分配</option>
+                    <option th:each="room : ${rooms}" th:value="${room.id}"
+                            th:text="${room.roomNo + ' | ' + room.roomType + ' | 已住' + room.occupied + '/' + room.capacity + ' | 剩余' + (room.capacity - room.occupied) + '床 | ' + (room.status == 'AVAILABLE' ? '空闲' : room.status == 'FULL' ? '已满' : '维修')}"
+                            th:selected="${elder.roomId == room.id}"></option>
+                </select>
+            </div>
+            <div class="form-group"><label>床号</label><input type="text" id="bedNo" th:value="${elder.bedNo}"></div>
+            <div class="form-group"><label>状态</label>
+                <select id="elderStatus">
+                    <option value="ACTIVE" th:selected="${elder.status == 'ACTIVE'}">在住</option>
+                    <option value="LEFT" th:selected="${elder.status == 'LEFT'}">离院</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <a href="/elder" class="btn">取消</a>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.getElementById('elderForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const strOrNull = (v) => v && v.trim() ? v.trim() : null;
+        const intOrNull = (v) => { const p = parseInt(v); return isNaN(p) ? null : p; };
+
+        const elder = {
+            id: intOrNull(document.getElementById('elderId').value),
+            name: document.getElementById('name').value,
+            gender: document.getElementById('gender').value,
+            birthday: strOrNull(document.getElementById('birthday').value),
+            idCard: strOrNull(document.getElementById('idCard').value),
+            phone: strOrNull(document.getElementById('phone').value),
+            emergencyContact: strOrNull(document.getElementById('emergencyContact').value),
+            emergencyPhone: strOrNull(document.getElementById('emergencyPhone').value),
+            address: strOrNull(document.getElementById('address').value),
+            healthStatus: strOrNull(document.getElementById('healthStatus').value),
+            roomId: intOrNull(document.getElementById('roomId').value),
+            bedNo: strOrNull(document.getElementById('bedNo').value),
+            status: document.getElementById('elderStatus').value
+        };
+        fetch('/elder/update', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(elder)
+        }).then(r => {
+            if(!r.ok) throw new Error('HTTP '+r.status);
+            return r.json();
+        }).then(d => {
+            alert(d.message);
+            if (d.code === 200) window.location.href = '/elder';
+        }).catch(err => {
+            alert('请求失败：'+err.message);
+        });
+    });
+</script>
+</body>
+</html>

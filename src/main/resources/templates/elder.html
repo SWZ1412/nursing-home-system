@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老人管理 - 养老院管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/common.css}">
+    <style>
+        .warning-row { background: #fff8e1; }
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .quick-stat {
+            background: white;
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .quick-stat .qs-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        .quick-stat .qs-num { font-size: 22px; font-weight: 700; color: var(--text); }
+        .quick-stat .qs-label { font-size: 12px; color: var(--text-muted); }
+        .qs-green { background: rgba(91,140,90,0.1); }
+        .qs-blue { background: rgba(100,140,200,0.1); }
+        .qs-orange { background: rgba(249,168,37,0.1); }
+        .qs-red { background: rgba(229,57,53,0.08); }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>👴 老人管理</h2>
+            <button class="btn btn-primary" onclick="showAddModal()">+ 添加老人</button>
+        </div>
+
+        <!-- 快捷统计 -->
+        <div class="quick-stats" id="quickStats">
+            <div class="quick-stat">
+                <div class="qs-icon qs-green">👴</div>
+                <div><div class="qs-num" id="statTotal">0</div><div class="qs-label">在住老人</div></div>
+            </div>
+            <div class="quick-stat">
+                <div class="qs-icon qs-blue">🏠</div>
+                <div><div class="qs-num" id="statWithRoom">0</div><div class="qs-label">已分配房间</div></div>
+            </div>
+            <div class="quick-stat">
+                <div class="qs-icon qs-orange">📋</div>
+                <div><div class="qs-num" id="statWithPlan">0</div><div class="qs-label">有用藥計劃</div></div>
+            </div>
+            <div class="quick-stat">
+                <div class="qs-icon qs-red">⚠️</div>
+                <div><div class="qs-num" id="statNoRoom">0</div><div class="qs-label">未分配房间</div></div>
+            </div>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="搜索老人姓名...">
+            <button class="btn btn-primary" onclick="searchElder()">搜索</button>
+            <button class="btn" onclick="loadElders()">显示全部</button>
+        </div>
+
+        <table id="elderTable">
+            <thead>
+            <tr><th>编号</th><th>姓名</th><th>性别</th><th>年龄</th><th>联系电话</th><th>房间号</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody id="elderTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 添加/编辑弹窗 -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">添加老人</h3>
+            <button onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;">&times;</button>
+        </div>
+        <form id="elderForm">
+            <input type="hidden" id="elderId" name="id">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;">
+                <div class="form-group"><label>姓名 *</label><input type="text" id="name" required></div>
+                <div class="form-group"><label>性别</label><select id="gender"><option value="男">男</option><option value="女">女</option></select></div>
+                <div class="form-group"><label>出生日期</label><input type="date" id="birthday"></div>
+                <div class="form-group"><label>身份证号</label><input type="text" id="idCard"></div>
+                <div class="form-group"><label>联系电话</label><input type="text" id="phone"></div>
+                <div class="form-group"><label>紧急联系人</label><input type="text" id="emergencyContact"></div>
+                <div class="form-group"><label>紧急联系电话</label><input type="text" id="emergencyPhone"></div>
+                <div class="form-group"><label>床号</label><input type="text" id="bedNo"></div>
+            </div>
+            <div class="form-group"><label>分配房间</label>
+                <select id="roomId"><option value="">暂不分配</option></select>
+            </div>
+            <div class="form-group"><label>家庭地址</label><textarea id="address" rows="2"></textarea></div>
+            <div class="form-group"><label>健康状况</label><textarea id="healthStatus" rows="2"></textarea></div>
+            <div class="form-group" id="statusGroup" style="display:none;"><label>状态</label>
+                <select id="elderStatus"><option value="ACTIVE">在住</option><option value="LEFT">离院</option></select>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveElder()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentEditId = null;
+
+    function loadRooms() {
+        fetch('/room/list').then(res=>res.json()).then(data=>{
+            if(data.code===200){
+                const sel = document.getElementById('roomId');
+                sel.innerHTML = '<option value="">暂不分配</option>';
+                data.data.list.forEach(r => {
+                    const remaining = r.capacity - r.occupied;
+                    const statusText = r.status === 'AVAILABLE' ? '空闲' : r.status === 'FULL' ? '已满' : '维修';
+                    sel.innerHTML += `<option value="${r.id}">${r.roomNo} | ${r.roomType} | 已住${r.occupied}/${r.capacity} | 剩余${remaining}床 | ${statusText}</option>`;
+                });
+            }
+        });
+    }
+
+    function loadElders() {
+        fetch('/elder/list')
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200) {
+                    renderTable(data.data.list);
+                    updateQuickStats(data.data.list);
+                }
+            });
+    }
+
+    function updateQuickStats(list) {
+        document.getElementById('statTotal').textContent = list.length;
+        document.getElementById('statWithRoom').textContent = list.filter(e => e.roomId).length;
+        document.getElementById('statNoRoom').textContent = list.filter(e => !e.roomId).length;
+        // 用药计划数量异步获取
+        fetch('/medication-plan/list').then(r=>r.json()).then(d=>{
+            if(d.code===200){
+                const planElderIds = new Set(d.data.list.map(p=>p.elderId));
+                document.getElementById('statWithPlan').textContent = list.filter(e=>planElderIds.has(e.id)).length;
+            }
+        });
+    }
+
+    function renderTable(elders) {
+        const tbody = document.getElementById('elderTableBody');
+        tbody.innerHTML = '';
+        if (!elders || elders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#999;">暂无老人数据</td></tr>';
+            return;
+        }
+        elders.forEach(elder => {
+            const age = elder.birthday ? new Date().getFullYear() - new Date(elder.birthday).getFullYear() : '-';
+            const row = `<tr>
+                    <td>${elder.elderNo || '-'}</td>
+                    <td><strong>${elder.name}</strong></td>
+                    <td>${elder.gender||'-'}</td>
+                    <td>${age}</td>
+                    <td>${elder.phone || '-'}</td>
+                    <td>${elder.roomNo ? '🏠 '+elder.roomNo : '<span style="color:#999;">未分配</span>'}</td>
+                    <td>${elder.status === 'ACTIVE' ? '<span style="color:#4caf50;font-weight:600;">在住</span>' : '<span style="color:#999;">离院</span>'}</td>
+                    <td style="display:flex;gap:6px;">
+                        <button class="btn btn-warning" style="padding:5px 10px;font-size:12px;" onclick="editElder(${elder.id})">编辑</button>
+                        <button class="btn btn-danger" style="padding:5px 10px;font-size:12px;" onclick="deleteElder(${elder.id})">删除</button>
+                    </td>
+                </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function searchElder() {
+        const keyword = document.getElementById('searchInput').value.trim();
+        if(!keyword) { loadElders(); return; }
+        fetch('/elder/list').then(res=>res.json()).then(data=>{
+            if(data.code===200) {
+                const filtered = data.data.list.filter(e => e.name && e.name.includes(keyword));
+                renderTable(filtered);
+                updateQuickStats(data.data.list);
+            }
+        });
+    }
+
+    function showAddModal() {
+        currentEditId = null;
+        document.getElementById('modalTitle').innerText = '添加老人';
+        document.getElementById('elderForm').reset();
+        document.getElementById('roomId').value = '';
+        document.getElementById('statusGroup').style.display = 'none';
+        document.getElementById('modal').style.display = 'flex';
+    }
+
+    function editElder(id) {
+        currentEditId = id;
+        fetch(`/elder/${id}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200) {
+                    const elder = data.data;
+                    document.getElementById('modalTitle').innerText = '编辑老人';
+                    document.getElementById('elderId').value = elder.id;
+                    document.getElementById('name').value = elder.name||'';
+                    document.getElementById('gender').value = elder.gender||'男';
+                    document.getElementById('birthday').value = elder.birthday ? elder.birthday.split('T')[0] : '';
+                    document.getElementById('idCard').value = elder.idCard || '';
+                    document.getElementById('phone').value = elder.phone || '';
+                    document.getElementById('emergencyContact').value = elder.emergencyContact || '';
+                    document.getElementById('emergencyPhone').value = elder.emergencyPhone || '';
+                    document.getElementById('address').value = elder.address || '';
+                    document.getElementById('healthStatus').value = elder.healthStatus || '';
+                    document.getElementById('roomId').value = elder.roomId || '';
+                    document.getElementById('bedNo').value = elder.bedNo || '';
+                    document.getElementById('elderStatus').value = elder.status || 'ACTIVE';
+                    document.getElementById('statusGroup').style.display = 'block';
+                    document.getElementById('modal').style.display = 'flex';
+                }
+            });
+    }
+
+    function saveElder() {
+        const strOrNull = (v) => v && v.trim() ? v.trim() : null;
+        const intOrNull = (v) => { const p = parseInt(v); return isNaN(p) ? null : p; };
+        const elder = {
+            id: intOrNull(document.getElementById('elderId').value),
+            name: document.getElementById('name').value,
+            gender: document.getElementById('gender').value,
+            birthday: strOrNull(document.getElementById('birthday').value),
+            idCard: strOrNull(document.getElementById('idCard').value),
+            phone: strOrNull(document.getElementById('phone').value),
+            emergencyContact: strOrNull(document.getElementById('emergencyContact').value),
+            emergencyPhone: strOrNull(document.getElementById('emergencyPhone').value),
+            address: strOrNull(document.getElementById('address').value),
+            healthStatus: strOrNull(document.getElementById('healthStatus').value),
+            roomId: intOrNull(document.getElementById('roomId').value),
+            bedNo: strOrNull(document.getElementById('bedNo').value),
+            status: document.getElementById('statusGroup').style.display !== 'none' ? document.getElementById('elderStatus').value : null
+        };
+        const url = elder.id ? '/elder/update' : '/elder/add';
+        const method = elder.id ? 'PUT' : 'POST';
+        fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(elder) })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(errData => { throw new Error(errData.message || ('HTTP '+res.status)); })
+                        .catch(e => { if(e.message && !e.message.startsWith('HTTP')) throw e; throw new Error('服务器错误 (HTTP '+res.status+')'); });
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data.code === 200) { alert(data.message); closeModal(); loadElders(); }
+                else { alert('操作失败：' + data.message); }
+            })
+            .catch(err => { alert('请求失败：' + err.message); });
+    }
+
+    function deleteElder(id) {
+        if (confirm('确定要删除该老人吗？')) {
+            fetch(`/elder/delete/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => { alert(data.message); if (data.code === 200) loadElders(); })
+                .catch(err => { alert('请求失败：'+err.message); });
+        }
+    }
+
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+    loadRooms();
+    loadElders();
+</script>
+</body>
+</html>

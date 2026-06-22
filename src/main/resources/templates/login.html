@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>养老院管理系统 - 登录</title>
+    <style>
+        :root {
+            --primary: #5B8C5A;
+            --primary-light: #7CB342;
+            --accent: #F9A825;
+            --bg-dark: #1a1a2e;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text: #e0e0e0;
+            --text-muted: #a0a0a0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0d1b0f;
+            overflow: hidden;
+        }
+
+        /* === Animated Background === */
+        .bg-scene {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+        .bg-gradient {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 20% 20%, #1a3a1a 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 80%, #1a2e1a 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 50%, #0d1b0f 0%, #080f08 100%);
+        }
+        /* Floating shapes */
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.3;
+            animation: float 20s infinite ease-in-out;
+        }
+        .shape:nth-child(1) { width: 300px; height: 300px; background: #5B8C5A; top: -50px; left: -50px; animation-delay: 0s; }
+        .shape:nth-child(2) { width: 250px; height: 250px; background: #4a7c49; bottom: -30px; right: -30px; animation-delay: -7s; }
+        .shape:nth-child(3) { width: 200px; height: 200px; background: #3d6b3c; top: 50%; left: 60%; animation-delay: -14s; }
+        .shape:nth-child(4) { width: 180px; height: 180px; background: #F9A825; top: 30%; left: 10%; animation-delay: -3s; opacity: 0.12; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(40px, -30px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.9); }
+            75% { transform: translate(-30px, -10px) scale(1.05); }
+        }
+
+        /* Particles */
+        .particles {
+            position: absolute;
+            inset: 0;
+        }
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            animation: rise 8s infinite;
+        }
+        @keyframes rise {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        /* === Login Card === */
+        .login-wrapper {
+            position: relative;
+            z-index: 1;
+            width: 440px;
+            max-width: 95vw;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4),
+                        inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .login-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, #5B8C5A, #7CB342);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            box-shadow: 0 8px 25px rgba(91,140,90,0.35);
+        }
+        .login-header h1 {
+            font-size: 26px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 1px;
+        }
+        .login-header .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* === Form === */
+        .input-group {
+            margin-bottom: 22px;
+            position: relative;
+        }
+        .input-group .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: var(--text-muted);
+            pointer-events: none;
+            transition: color 0.3s;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 16px 16px 16px 50px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .input-group input::placeholder {
+            color: rgba(255,255,255,0.25);
+        }
+        .input-group input:focus {
+            border-color: var(--primary-light);
+            background: rgba(255,255,255,0.12);
+            box-shadow: 0 0 0 3px rgba(91,140,90,0.15);
+        }
+        .input-group input:focus ~ .input-icon,
+        .input-group input:focus + .input-icon { color: var(--primary-light); }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #5B8C5A 0%, #4a7c49 100%);
+            border: none;
+            border-radius: 14px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(91,140,90,0.4);
+        }
+        .login-btn:active { transform: translateY(0); }
+        .login-btn.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .login-btn .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-left: 8px;
+        }
+        .login-btn.loading .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-msg {
+            text-align: center;
+            margin-top: 16px;
+            padding: 10px 16px;
+            background: rgba(244,67,54,0.12);
+            border: 1px solid rgba(244,67,54,0.25);
+            border-radius: 10px;
+            color: #ef5350;
+            font-size: 13px;
+            display: none;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 28px;
+            color: var(--text-muted);
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+<!-- Animated background -->
+<div class="bg-scene">
+    <div class="bg-gradient"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="particles" id="particles"></div>
+</div>
+
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">🏥</div>
+            <h1>养老院管理系统</h1>
+            <div class="subtitle">Smart Nursing Home</div>
+        </div>
+        <form id="loginForm">
+            <div class="input-group">
+                <span class="input-icon">👤</span>
+                <input type="text" id="username" name="username" placeholder="请输入用户名" autocomplete="username" required>
+            </div>
+            <div class="input-group">
+                <span class="input-icon">🔒</span>
+                <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="login-btn" id="loginBtn">
+                <span id="btnText">登 录</span>
+                <span class="spinner"></span>
+            </button>
+            <div id="errorMsg" class="error-msg"></div>
+        </form>
+        <div class="login-footer">Nursing Home Management System © 2024</div>
+    </div>
+</div>
+
+<script>
+    // Generate particles
+    (function(){
+        const container = document.getElementById('particles');
+        for(let i=0; i<40; i++){
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random()*100 + '%';
+            p.style.animationDelay = Math.random()*8 + 's';
+            p.style.animationDuration = (6 + Math.random()*10) + 's';
+            p.style.width = p.style.height = (1 + Math.random()*3) + 'px';
+            container.appendChild(p);
+        }
+    })();
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const errorMsg = document.getElementById('errorMsg');
+        const btn = document.getElementById('loginBtn');
+        const btnText = document.getElementById('btnText');
+
+        if (!username || !password) {
+            errorMsg.textContent = '请输入用户名和密码';
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        errorMsg.style.display = 'none';
+        btn.classList.add('loading');
+        btnText.textContent = '验证中';
+
+        fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.code === 200) {
+                    btnText.textContent = '成 功';
+                    btn.style.background = 'linear-gradient(135deg, #43A047, #2E7D32)';
+                    setTimeout(() => { window.location.href = '/index'; }, 400);
+                } else {
+                    errorMsg.textContent = data.message || '登录失败';
+                    errorMsg.style.display = 'block';
+                    btn.classList.remove('loading');
+                    btnText.textContent = '登 录';
+                    btn.style.background = '';
+                }
+            })
+            .catch(error => {
+                errorMsg.textContent = '网络错误，请检查连接后重试';
+                errorMsg.style.display = 'block';
+                btn.classList.remove('loading');
+                btnText.textContent = '登 录';
+                btn.style.background = '';
+            });
+    });
+</script>
+</body>
+</html>

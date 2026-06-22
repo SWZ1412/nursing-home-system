@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+<!-- 公共导航栏片段 -->
+<header class="navbar" th:fragment="header">
+    <h1>🏥 养老院管理信息系统</h1>
+    <div class="user-info">
+        <span>欢迎，<span th:text="${session.user != null ? session.user.realName : '用户'}">用户</span></span>
+        <a href="/logout" class="logout-btn">退出登录</a>
+    </div>
+</header>
+</body>
+</html>

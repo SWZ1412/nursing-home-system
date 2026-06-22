@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>用户管理 - 养老院管理系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .status-active { color: #4caf50; font-weight: bold; }
+        .status-disabled { color: #f44336; font-weight: bold; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 10px; width: 500px; max-width: 90%; padding: 30px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>用户管理</h2>
+            <button class="btn btn-primary" onclick="showAddModal()">+ 添加用户</button>
+        </div>
+        <table id="userTable">
+            <thead><tr><th>用户名</th><th>真实姓名</th><th>角色</th><th>电话</th><th>邮箱</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="userTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 添加/编辑用户弹窗 -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3 id="modalTitle">添加用户</h3><button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button></div>
+        <form id="userForm">
+            <input type="hidden" id="userId">
+            <div class="form-group" id="usernameGroup"><label>用户名</label><input type="text" id="username" required></div>
+            <div class="form-group"><label>真实姓名</label><input type="text" id="realName" required></div>
+            <div class="form-group"><label>角色</label><select id="role"><option value="ADMIN">管理员</option><option value="NURSE">护士</option><option value="DOCTOR">医生</option></select></div>
+            <div class="form-group"><label>电话</label><input type="text" id="phone"></div>
+            <div class="form-group"><label>邮箱</label><input type="text" id="email"></div>
+            <div class="form-group"><label>状态</label><select id="userStatus"><option value="1">启用</option><option value="0">禁用</option></select></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveUser()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentEditId = null;
+
+    function loadUsers() {
+        fetch('/user/list').then(res=>res.json()).then(data=>{
+            if(data.code===200) renderUsers(data.data.list);
+        });
+    }
+    function renderUsers(users) {
+        let html = '';
+        users.forEach(u => {
+            let cls = u.status === 1 ? 'status-active' : 'status-disabled';
+            let st = u.status === 1 ? '启用' : '禁用';
+            const roleMap = { 'ADMIN': '管理员', 'DOCTOR': '医生', 'NURSE': '护士' };
+            html += `<tr><td>${u.username}</td><td>${u.realName}</td><td>${roleMap[u.role] || u.role || '-'}</td>
+                <td>${u.phone||'-'}</td><td>${u.email||'-'}</td><td class="${cls}">${st}</td>
+                <td>
+                    <button class="btn btn-warning" onclick="editUser(${u.id})">编辑</button>
+                    <button class="btn" onclick="resetPassword(${u.id})">重置密码</button>
+                    <button class="btn btn-danger" onclick="deleteUser(${u.id})">删除</button>
+                </td></tr>`;
+        });
+        document.getElementById('userTableBody').innerHTML = html;
+    }
+    function showAddModal() {
+        currentEditId = null;
+        document.getElementById('modalTitle').innerText = '添加用户';
+        document.getElementById('userForm').reset();
+        document.getElementById('userId').value = '';
+        document.getElementById('username').disabled = false;
+        document.getElementById('usernameGroup').style.display = 'block';
+        document.getElementById('modal').style.display = 'flex';
+    }
+    function editUser(id) {
+        currentEditId = id;
+        fetch('/user/list').then(res=>res.json()).then(data=>{
+            const u = data.data.list.find(u => u.id === id);
+            if(u){
+                document.getElementById('modalTitle').innerText = '编辑用户';
+                document.getElementById('userId').value = u.id;
+                document.getElementById('username').value = u.username;
+                document.getElementById('username').disabled = true;
+                document.getElementById('usernameGroup').style.display = 'none';
+                document.getElementById('realName').value = u.realName || '';
+                document.getElementById('role').value = u.role || 'NURSE';
+                document.getElementById('phone').value = u.phone || '';
+                document.getElementById('email').value = u.email || '';
+                document.getElementById('userStatus').value = u.status != null ? u.status : 1;
+                document.getElementById('modal').style.display = 'flex';
+            }
+        });
+    }
+    function saveUser() {
+        const user = {
+            id: parseInt(document.getElementById('userId').value) || null,
+            username: document.getElementById('username').value,
+            realName: document.getElementById('realName').value,
+            role: document.getElementById('role').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value,
+            status: parseInt(document.getElementById('userStatus').value)
+        };
+        const url = user.id ? '/user/update' : '/user/add';
+        const method = user.id ? 'PUT' : 'POST';
+        fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(user) })
+            .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closeModal(); loadUsers(); } })
+            .catch(err=>{ alert('请求失败：'+err.message); });
+    }
+    function deleteUser(id) {
+        if(!confirm('确定删除该用户吗？')) return;
+        fetch(`/user/delete/${id}`, { method:'DELETE' }).then(r=>r.json()).then(d=>{
+            alert(d.message); if(d.code===200) loadUsers();
+        });
+    }
+    function resetPassword(id) {
+        if(!confirm('确定重置该用户密码为123456吗？')) return;
+        fetch(`/user/reset/${id}`, { method:'POST' }).then(r=>r.json()).then(d=>{ alert(d.message); });
+    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    loadUsers();
+</script>
+</body>
+</html>

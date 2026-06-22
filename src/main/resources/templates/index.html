@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>养老院管理系统 - 首页</title>
+    <link rel="stylesheet" th:href="@{/css/common.css}">
+    <style>
+        .welcome-banner {
+            background: linear-gradient(135deg, #2e4a2e 0%, #1a301a 100%);
+            border-radius: var(--radius);
+            padding: 32px 36px;
+            color: white;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            right: -40px; top: -50%;
+            width: 260px; height: 260px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 50%;
+        }
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            right: 100px; bottom: -60px;
+            width: 140px; height: 140px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 50%;
+        }
+        .welcome-text { position: relative; z-index: 1; }
+        .welcome-text h2 { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
+        .welcome-text .greeting { font-size: 14px; opacity: 0.7; }
+        .welcome-text .datetime { font-size: 28px; font-weight: 300; margin-top: 8px; letter-spacing: 2px; }
+        .welcome-illustration {
+            font-size: 64px;
+            position: relative; z-index: 1;
+            animation: gentleBounce 3s ease-in-out infinite;
+        }
+        @keyframes gentleBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .dashboard-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-header .badge {
+            background: rgba(91,140,90,0.1);
+            color: var(--primary);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .card-body { padding: 16px 20px; }
+
+        .elder-mini-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f4f0;
+        }
+        .elder-mini-row:last-child { border-bottom: none; }
+        .elder-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 600; color: var(--primary);
+        }
+        .elder-mini-info { flex: 1; }
+        .elder-mini-name { font-weight: 600; font-size: 14px; }
+        .elder-mini-detail { font-size: 12px; color: var(--text-muted); }
+        .elder-mini-status {
+            padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+        }
+        .tag-active { background: #e8f5e9; color: #2e7d32; }
+        .tag-left { background: #f5f5f5; color: #999; }
+
+        .plan-mini-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f4f0;
+            font-size: 13px;
+        }
+        .plan-mini-row:last-child { border-bottom: none; }
+        .plan-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%; flex-shrink: 0;
+        }
+        .dot-active { background: #4caf50; }
+        .dot-stopped { background: #f44336; }
+
+        .room-bar-wrap { margin-bottom: 12px; }
+        .room-bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+        .room-bar {
+            height: 8px; border-radius: 4px;
+            background: #e8f5e9;
+            overflow: hidden;
+        }
+        .room-bar-fill {
+            height: 100%; border-radius: 4px;
+            background: linear-gradient(90deg, #5B8C5A, #7CB342);
+            transition: width 0.6s ease;
+        }
+
+        .empty-state {
+            text-align: center; padding: 30px; color: #bbb; font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <!-- 欢迎横幅 -->
+        <div class="welcome-banner">
+            <div class="welcome-text">
+                <div class="greeting" id="greetingText">下午好</div>
+                <h2 th:text="'欢迎回来，' + ${session.user.realName}">欢迎回来</h2>
+                <div class="datetime" id="liveTime">--:--</div>
+            </div>
+            <div class="welcome-illustration">🏥</div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="qs-icon" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 10px;background:rgba(91,140,90,0.1);">👴</div>
+                <h3 th:text="${activeElderCount}">--</h3>
+                <p>在住老人</p>
+            </div>
+            <div class="stat-card">
+                <div class="qs-icon" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 10px;background:rgba(76,175,80,0.1);">🏠</div>
+                <h3 th:text="${availableRoomCount}">--</h3>
+                <p>空闲房间</p>
+            </div>
+            <div class="stat-card">
+                <div class="qs-icon" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 10px;background:rgba(249,168,37,0.1);">💊</div>
+                <h3 th:text="${medicineCount}">--</h3>
+                <p>药品种类</p>
+            </div>
+            <div class="stat-card">
+                <div class="qs-icon" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 10px;background:rgba(100,140,200,0.1);">📊</div>
+                <h3 th:text="${occupancyRate}">--</h3>
+                <p>入住率</p>
+            </div>
+        </div>
+
+        <!-- 双栏内容区 -->
+        <div class="dashboard-grid" style="margin-top:24px;">
+            <!-- 最近入住的老人 -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    👴 在住老人概览
+                    <a href="/elder" class="badge" style="text-decoration:none;">查看全部 →</a>
+                </div>
+                <div class="card-body" id="recentElders">
+                    <div class="empty-state">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 今日用药提醒 -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    📋 用药计划概览
+                    <a href="/medication-plan" class="badge" style="text-decoration:none;">查看全部 →</a>
+                </div>
+                <div class="card-body" id="recentPlans">
+                    <div class="empty-state">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 房间入住情况 -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    🏠 房间入住情况
+                    <a href="/room" class="badge" style="text-decoration:none;">管理房间 →</a>
+                </div>
+                <div class="card-body" id="roomOccupancy">
+                    <div class="empty-state">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 低库存药品预警 -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    ⚠️ 低库存预警
+                    <a href="/medicine" class="badge" style="text-decoration:none;">管理药品 →</a>
+                </div>
+                <div class="card-body" id="lowStockMeds">
+                    <div class="empty-state">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // === 实时时钟 ===
+    function updateClock() {
+        const now = new Date();
+        const h = now.getHours();
+        document.getElementById('liveTime').textContent =
+            now.getHours().toString().padStart(2,'0') + ':' +
+            now.getMinutes().toString().padStart(2,'0') + ':' +
+            now.getSeconds().toString().padStart(2,'0');
+        const g = document.getElementById('greetingText');
+        if (h < 6) g.textContent = '夜深了，注意休息 🌙';
+        else if (h < 9) g.textContent = '早上好 ☀️';
+        else if (h < 12) g.textContent = '上午好 🌤️';
+        else if (h < 14) g.textContent = '中午好 ☀️';
+        else if (h < 18) g.textContent = '下午好 🌈';
+        else g.textContent = '晚上好 🌙';
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // === 在住老人列表 ===
+    fetch('/elder/list').then(r=>r.json()).then(d=>{
+        const container = document.getElementById('recentElders');
+        if(!d.data || !d.data.list || d.data.list.length===0){
+            container.innerHTML = '<div class="empty-state">暂无在住老人</div>';
+            return;
+        }
+        const list = d.data.list.slice(0, 6);
+        container.innerHTML = list.map(e => `
+            <div class="elder-mini-row">
+                <div class="elder-avatar">${e.name.charAt(0)}</div>
+                <div class="elder-mini-info">
+                    <div class="elder-mini-name">${e.name} <span style="font-size:11px;color:#999;">${e.gender||''} · ${e.age||''}岁</span></div>
+                    <div class="elder-mini-detail">${e.roomNo ? '🏠 '+e.roomNo : '未分配房间'} · ${e.healthStatus||'健康状况未填写'}</div>
+                </div>
+                <span class="elder-mini-status tag-active">在住</span>
+            </div>`).join('');
+    });
+
+    // === 用药计划 ===
+    fetch('/medication-plan/list').then(r=>r.json()).then(d=>{
+        const container = document.getElementById('recentPlans');
+        if(!d.data || !d.data.list || d.data.list.length===0){
+            container.innerHTML = '<div class="empty-state">暂无用药计划</div>';
+            return;
+        }
+        const active = d.data.list.filter(p=>p.status==='ACTIVE').slice(0, 5);
+        if(active.length===0){ container.innerHTML='<div class="empty-state">暂无进行中的用药计划</div>'; return; }
+        container.innerHTML = active.map(p => `
+            <div class="plan-mini-row">
+                <span class="plan-dot dot-active"></span>
+                <span style="flex:1;"><strong>${p.elderName||'-'}</strong> — ${p.medicineName||'-'} ${p.dosage||''}</span>
+                <span style="color:var(--text-muted);font-size:11px;">${p.frequency||''}</span>
+            </div>`).join('');
+    });
+
+    // === 房间入住情况 ===
+    fetch('/room/list').then(r=>r.json()).then(d=>{
+        const container = document.getElementById('roomOccupancy');
+        if(!d.data || !d.data.list || d.data.list.length===0){
+            container.innerHTML = '<div class="empty-state">暂无房间数据</div>';
+            return;
+        }
+        container.innerHTML = d.data.list.map(r => {
+            const pct = r.capacity > 0 ? Math.round(r.occupied / r.capacity * 100) : 0;
+            const color = pct >= 100 ? '#e53935' : pct >= 70 ? '#ff9800' : '#4caf50';
+            return `<div class="room-bar-wrap">
+                <div class="room-bar-label"><span>${r.roomNo} ${r.roomType||''}</span><span style="color:${color};font-weight:600;">${r.occupied}/${r.capacity}</span></div>
+                <div class="room-bar"><div class="room-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+            </div>`;
+        }).join('');
+    });
+
+    // === 低库存预警 ===
+    fetch('/medicine/lowstock').then(r=>r.json()).then(d=>{
+        const container = document.getElementById('lowStockMeds');
+        if(!d.data || d.data.length===0){
+            container.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ 所有药品库存充足</div>';
+            return;
+        }
+        container.innerHTML = d.data.slice(0, 5).map(m => `
+            <div class="plan-mini-row">
+                <span class="plan-dot" style="background:#f44336;"></span>
+                <span style="flex:1;"><strong>${m.name}</strong> — 库存 ${m.stock} / 最低 ${m.minStock}</span>
+                <span style="color:#f44336;font-weight:600;font-size:12px;">⚠ 需补货</span>
+            </div>`).join('');
+    });
+</script>
+</body>
+</html>

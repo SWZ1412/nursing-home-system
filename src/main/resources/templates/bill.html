@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>收费管理 - 养老院管理系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .status-unpaid { color: #f44336; font-weight: bold; }
+        .status-paid { color: #4caf50; font-weight: bold; }
+        .status-partial { color: #ff9800; font-weight: bold; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 12px; width: 500px; max-width: 90%; padding: 30px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .pay-summary { background: #f5f8f5; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px; }
+        .pay-summary .remaining { font-size: 20px; font-weight: 700; color: var(--primary); }
+        .tag-paid { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .tag-unpaid { background: #fbe9e7; color: #c62828; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .tag-partial { background: #fff3e0; color: #e65100; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="main-content">
+        <div class="page-header">
+            <h2>💰 收费管理</h2>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <span id="filterLabel" style="font-size:13px;color:var(--text-muted);display:none;"></span>
+                <button class="btn" id="btnShowAll" style="display:none;" onclick="showAllBills()">← 返回全部</button>
+                <button class="btn btn-warning" id="btnOverdue" onclick="showOverdue()">⚠ 逾期账单</button>
+                <button class="btn btn-primary" onclick="showGenerateModal()">+ 生成账单</button>
+            </div>
+        </div>
+        <table id="billTable">
+            <thead><tr><th>账单号</th><th>老人</th><th>类型</th><th>金额</th><th>已缴</th><th>待缴</th><th>状态</th><th>月份</th><th>截止日期</th><th>操作</th></tr></thead>
+            <tbody id="billTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 生成账单弹窗 -->
+<div id="generateModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>📝 生成账单</h3><button onclick="closeGenerateModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;">&times;</button></div>
+        <form id="billForm">
+            <div class="form-group"><label>老人</label><select id="billElderId" required><option value="">请选择</option></select></div>
+            <div class="form-group"><label>费用类型</label><select id="billType"><option value="月租费">月租费</option><option value="护理费">护理费</option><option value="医药费">医药费</option><option value="餐费">餐费</option><option value="其他">其他</option></select></div>
+            <div class="form-group"><label>金额</label><input type="number" step="0.01" id="billAmount" placeholder="0.00" required></div>
+            <div class="form-group"><label>月份</label><input type="text" id="billMonth" placeholder="如 2024-01"></div>
+            <div class="form-group"><label>截止日期</label><input type="date" id="dueDate"></div>
+            <div class="form-group"><label>备注</label><textarea id="billRemark" rows="2"></textarea></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeGenerateModal()">取消</button>
+            <button class="btn btn-primary" onclick="generateBill()">生成账单</button>
+        </div>
+    </div>
+</div>
+
+<!-- 缴费弹窗 -->
+<div id="payModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>💳 缴纳费用</h3><button onclick="closePayModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;">&times;</button></div>
+        <div class="pay-summary">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>待缴金额</span>
+                <span class="remaining" id="remainingAmount">¥0.00</span>
+            </div>
+            <div style="color:var(--text-muted);margin-top:4px;" id="payBillInfo"></div>
+        </div>
+        <form id="payForm">
+            <input type="hidden" id="payBillId">
+            <div class="form-group">
+                <label>缴费金额（不能超过待缴金额）</label>
+                <input type="number" step="0.01" id="payAmount" placeholder="0.00" required oninput="checkPayAmount()">
+                <div id="payWarning" style="color:#f44336;font-size:12px;margin-top:4px;display:none;"></div>
+            </div>
+            <div class="form-group"><label>支付方式</label><select id="payMethod"><option value="现金">现金</option><option value="转账">转账</option><option value="微信">微信</option><option value="支付宝">支付宝</option></select></div>
+            <div class="form-group"><label>备注</label><textarea id="payRemark" rows="2"></textarea></div>
+        </form>
+        <div class="modal-footer">
+            <button class="btn" onclick="closePayModal()">取消</button>
+            <button class="btn btn-primary" id="confirmPayBtn" onclick="payBill()">确认缴费</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 缓存账单数据 + 最近删除
+    let billsCache = [];
+    let lastDeletedBill = null;
+
+    function loadBills() {
+        fetch('/bill/list').then(res=>res.json()).then(data=>{
+            if(data.code===200) {
+                billsCache = data.data.list;
+                renderBills(billsCache);
+                showAllMode();
+            }
+        });
+    }
+
+    function showAllMode() {
+        document.getElementById('filterLabel').style.display = 'none';
+        document.getElementById('btnShowAll').style.display = 'none';
+        document.getElementById('btnOverdue').style.display = '';
+    }
+
+    function showFilterMode(label) {
+        document.getElementById('filterLabel').textContent = label;
+        document.getElementById('filterLabel').style.display = '';
+        document.getElementById('btnShowAll').style.display = '';
+        document.getElementById('btnOverdue').style.display = 'none';
+    }
+
+    function showAllBills() {
+        renderBills(billsCache);
+        showAllMode();
+    }
+
+    function renderBills(bills) {
+        let html = '';
+        bills.forEach(b => {
+            const remaining = (b.amount - (b.paidAmount||0)).toFixed(2);
+            let statusTag = '';
+            if (b.status === 'UNPAID') statusTag = '<span class="tag-unpaid">未缴</span>';
+            else if (b.status === 'PAID') statusTag = '<span class="tag-paid">已缴</span>';
+            else statusTag = '<span class="tag-partial">部分缴</span>';
+
+            let actionHtml = '';
+            if (b.status === 'PAID') {
+                actionHtml = '<span style="color:#999;font-size:12px;margin-right:8px;">无需缴纳</span>';
+            } else {
+                actionHtml = `<button class="btn btn-primary" style="padding:5px 12px;font-size:12px;margin-right:4px;" onclick="showPayModal(${b.id})">缴费</button>`;
+            }
+            actionHtml += `<button class="btn btn-danger" style="padding:5px 10px;font-size:12px;" onclick="deleteBill(${b.id},'${b.billNo}')">删除</button>`;
+
+            html += `<tr>
+                <td style="font-family:monospace;">${b.billNo}</td>
+                <td>${b.elderName||'-'}</td>
+                <td>${b.billType||'-'}</td>
+                <td>¥${(b.amount||0).toFixed(2)}</td>
+                <td>¥${(b.paidAmount||0).toFixed(2)}</td>
+                <td style="color:#f44336;font-weight:600;">¥${remaining}</td>
+                <td>${statusTag}</td>
+                <td>${b.billMonth||'-'}</td>
+                <td>${b.dueDate||'-'}</td>
+                <td>${actionHtml}</td>
+            </tr>`;
+        });
+        document.getElementById('billTableBody').innerHTML = html;
+    }
+
+    function loadEldersForBill() {
+        fetch('/elder/list').then(res=>res.json()).then(data=>{
+            if(data.code===200){
+                const sel = document.getElementById('billElderId');
+                sel.innerHTML = '<option value="">请选择</option>';
+                data.data.list.forEach(e => { sel.innerHTML += `<option value="${e.id}">${e.name}</option>`; });
+            }
+        });
+    }
+
+    function showGenerateModal() { document.getElementById('generateModal').style.display = 'flex'; }
+    function closeGenerateModal() { document.getElementById('generateModal').style.display = 'none'; }
+
+    function generateBill() {
+        const floatOrNull = v => { const p = parseFloat(v); return isNaN(p) ? null : p; };
+        const strOrNull = v => v && v.trim() ? v.trim() : null;
+        const bill = {
+            elderId: parseInt(document.getElementById('billElderId').value),
+            billType: document.getElementById('billType').value,
+            amount: floatOrNull(document.getElementById('billAmount').value),
+            billMonth: strOrNull(document.getElementById('billMonth').value),
+            dueDate: strOrNull(document.getElementById('dueDate').value),
+            remark: strOrNull(document.getElementById('billRemark').value)
+        };
+        if (!bill.elderId || !bill.amount) { alert('请选择老人并填写金额'); return; }
+        fetch('/bill/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bill) })
+            .then(r => { if(!r.ok) return r.json().then(d=>{throw new Error(d.message);}); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closeGenerateModal(); document.getElementById('billForm').reset(); loadBills(); } })
+            .catch(err=>{ alert('请求失败：'+err.message); });
+    }
+
+    let currentPayRemaining = 0;
+
+    function showPayModal(billId) {
+        const bill = billsCache.find(b => b.id === billId);
+        if (!bill) return;
+        currentPayRemaining = bill.amount - (bill.paidAmount || 0);
+        document.getElementById('payBillId').value = billId;
+        document.getElementById('payAmount').value = currentPayRemaining.toFixed(2);
+        document.getElementById('remainingAmount').textContent = '¥' + currentPayRemaining.toFixed(2);
+        document.getElementById('payBillInfo').textContent = bill.elderName + ' · ' + (bill.billType||'') + ' · 总额 ¥' + (bill.amount||0).toFixed(2);
+        document.getElementById('payWarning').style.display = 'none';
+        document.getElementById('confirmPayBtn').disabled = false;
+        document.getElementById('payForm').reset();
+        document.getElementById('payBillId').value = billId;
+        document.getElementById('payAmount').value = currentPayRemaining.toFixed(2);
+        document.getElementById('payModal').style.display = 'flex';
+    }
+
+    function checkPayAmount() {
+        const val = parseFloat(document.getElementById('payAmount').value) || 0;
+        const warning = document.getElementById('payWarning');
+        if (val > currentPayRemaining) {
+            warning.textContent = '⚠ 缴费金额超过待缴金额 ¥' + currentPayRemaining.toFixed(2) + '，请修改';
+            warning.style.display = 'block';
+            document.getElementById('confirmPayBtn').disabled = true;
+        } else if (val <= 0) {
+            warning.textContent = '⚠ 请输入有效的缴费金额';
+            warning.style.display = 'block';
+            document.getElementById('confirmPayBtn').disabled = true;
+        } else {
+            warning.style.display = 'none';
+            document.getElementById('confirmPayBtn').disabled = false;
+        }
+    }
+
+    function closePayModal() { document.getElementById('payModal').style.display = 'none'; }
+
+    function payBill() {
+        const amount = parseFloat(document.getElementById('payAmount').value) || 0;
+        if (amount > currentPayRemaining) { alert('缴费金额不能超过待缴金额！'); return; }
+        if (amount <= 0) { alert('请输入有效的缴费金额'); return; }
+
+        const payment = {
+            billId: parseInt(document.getElementById('payBillId').value),
+            amount: amount,
+            paymentMethod: document.getElementById('payMethod').value,
+            remark: document.getElementById('payRemark').value
+        };
+        fetch('/bill/pay', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payment) })
+            .then(r => { if(!r.ok) return r.json().then(d=>{throw new Error(d.message);}); return r.json(); })
+            .then(d=>{ alert(d.message); if(d.code===200){ closePayModal(); loadBills(); } })
+            .catch(err=>{ alert(err.message); });
+    }
+
+    function showOverdue() {
+        const overdue = billsCache.filter(b => b.status !== 'PAID' && b.dueDate && new Date(b.dueDate) < new Date());
+        if (overdue.length > 0) {
+            renderBills(overdue);
+            showFilterMode('逾期账单：' + overdue.length + ' 笔');
+        } else { alert('✅ 没有逾期账单'); }
+    }
+
+    // 删除账单（可撤销）
+    function deleteBill(id, billNo) {
+        const bill = billsCache.find(b => b.id === id);
+        if (!bill) return;
+        let confirmMsg = '确定删除账单 ' + billNo + ' 吗？';
+        if (bill.status === 'PAID' || bill.status === 'PARTIAL') {
+            confirmMsg += '\n\n⚠ 该账单有缴费记录，删除账单将同时清除所有缴费记录！';
+        }
+        confirmMsg += '\n\n提示：删除后可在5秒内撤销（但缴费记录无法恢复）';
+        if (!confirm(confirmMsg)) return;
+        // 保存删除前的数据用于撤销
+        const billToDelete = bill;
+        fetch('/bill/delete/' + id, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(d => {
+                if (d.code === 200) {
+                    lastDeletedBill = billToDelete;
+                    billsCache = billsCache.filter(b => b.id !== id);
+                    renderBills(billsCache);
+                    showUndoToast(billNo);
+                } else {
+                    alert('删除失败：' + d.message);
+                }
+            })
+            .catch(err => { alert('请求失败：' + err.message); });
+    }
+
+    // 撤销删除提示
+    function showUndoToast(billNo) {
+        // 在表格上方显示撤销提示
+        const toast = document.createElement('div');
+        toast.id = 'undoToast';
+        toast.style.cssText = 'background:#323232;color:white;padding:12px 20px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;';
+        toast.innerHTML = `<span>🗑 账单 <strong>${billNo}</strong> 已删除</span>
+            <button onclick="undoDelete()" style="background:#5B8C5A;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px;margin-left:12px;">撤销</button>`;
+        const table = document.getElementById('billTable');
+        table.parentNode.insertBefore(toast, table);
+
+        // 5秒后自动消失
+        setTimeout(() => {
+            const t = document.getElementById('undoToast');
+            if (t) t.remove();
+            lastDeletedBill = null;
+        }, 5000);
+    }
+
+    // 撤销删除
+    function undoDelete() {
+        if (!lastDeletedBill) return;
+        fetch('/bill/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                elderId: lastDeletedBill.elderId,
+                billType: lastDeletedBill.billType,
+                amount: lastDeletedBill.amount,
+                billMonth: lastDeletedBill.billMonth,
+                dueDate: lastDeletedBill.dueDate,
+                remark: lastDeletedBill.remark
+            })
+        }).then(r => r.json()).then(d => {
+            if (d.code === 200) {
+                const toast = document.getElementById('undoToast');
+                if (toast) toast.remove();
+                lastDeletedBill = null;
+                loadBills();
+            } else {
+                alert('撤销失败：' + d.message);
+            }
+        });
+    }
+
+    loadEldersForBill();
+    loadBills();
+</script>
+</body>
+</html>
