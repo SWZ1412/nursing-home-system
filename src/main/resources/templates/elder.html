@@ -165,7 +165,16 @@
             return;
         }
         elders.forEach(elder => {
-            const age = elder.birthday ? new Date().getFullYear() - new Date(elder.birthday).getFullYear() : '-';
+            let age = '-';
+            if (elder.birthday) {
+                const today = new Date();
+                const birth = new Date(elder.birthday);
+                age = today.getFullYear() - birth.getFullYear();
+                // 如果今年生日还没到，减一岁
+                if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+                    age--;
+                }
+            }
             const row = `<tr>
                     <td>${elder.elderNo || '-'}</td>
                     <td><strong>${elder.name}</strong></td>

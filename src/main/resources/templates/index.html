@@ -230,6 +230,18 @@
 </div>
 
 <script>
+    // === 年龄计算 ===
+    function calcAge(birthday) {
+        if (!birthday) return '-';
+        const today = new Date();
+        const birth = new Date(birthday);
+        let age = today.getFullYear() - birth.getFullYear();
+        if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        return age;
+    }
+
     // === 实时时钟 ===
     function updateClock() {
         const now = new Date();
@@ -261,7 +273,7 @@
             <div class="elder-mini-row">
                 <div class="elder-avatar">${e.name.charAt(0)}</div>
                 <div class="elder-mini-info">
-                    <div class="elder-mini-name">${e.name} <span style="font-size:11px;color:#999;">${e.gender||''} · ${e.age||''}岁</span></div>
+                    <div class="elder-mini-name">${e.name} <span style="font-size:11px;color:#999;">${e.gender||''} · ${calcAge(e.birthday)}岁</span></div>
                     <div class="elder-mini-detail">${e.roomNo ? '🏠 '+e.roomNo : '未分配房间'} · ${e.healthStatus||'健康状况未填写'}</div>
                 </div>
                 <span class="elder-mini-status tag-active">在住</span>
