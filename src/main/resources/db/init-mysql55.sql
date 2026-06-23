@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS `payment` (
     `elder_id` INT NOT NULL,
     `amount` DECIMAL(10,2) DEFAULT 0,
     `payment_method` VARCHAR(20),
-    `payment_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `payment_time` TIMESTAMP NULL,
     `operator_id` INT,
     `remark` VARCHAR(500),
     `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
